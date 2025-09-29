@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Wallet, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { useAccount, useConnect } from "wagmi";
+import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 interface WalletConnectProps {
@@ -14,9 +14,10 @@ interface WalletConnectProps {
 
 const WalletConnect = ({ onConnected }: WalletConnectProps) => {
   const [selectedChain, setSelectedChain] = useState<"solana" | "ethereum" | null>(null);
+  const [hasNotified, setHasNotified] = useState(false);
   
   // Solana wallet hooks
-  const { publicKey, connected: solanaConnected } = useWallet();
+  const { publicKey, connected: solanaConnected, connecting: solanaConnecting } = useWallet();
   const { setVisible } = useWalletModal();
   
   // Ethereum wallet hooks
@@ -24,32 +25,43 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
 
   // Handle Solana wallet connection
   const handleSolanaConnect = () => {
+    console.log("Opening Solana wallet modal");
     setSelectedChain("solana");
+    setHasNotified(false);
     setVisible(true);
   };
 
-  // Monitor Solana connection
-  if (solanaConnected && publicKey && selectedChain === "solana") {
-    const address = publicKey.toBase58();
-    setTimeout(() => {
+  // Monitor Solana connection with useEffect
+  useEffect(() => {
+    if (solanaConnected && publicKey && selectedChain === "solana" && !hasNotified) {
+      console.log("Solana wallet connected:", publicKey.toBase58());
+      const address = publicKey.toBase58();
+      setHasNotified(true);
       onConnected(address);
       toast({
         title: "Solana Wallet Connected",
         description: `Connected: ${address.substring(0, 8)}...`,
       });
-    }, 100);
-  }
+    }
+  }, [solanaConnected, publicKey, selectedChain, hasNotified, onConnected]);
 
-  // Monitor Ethereum connection
-  if (ethConnected && ethAddress && selectedChain === "ethereum") {
-    setTimeout(() => {
+  // Monitor Ethereum connection with useEffect
+  useEffect(() => {
+    if (ethConnected && ethAddress && selectedChain === "ethereum" && !hasNotified) {
+      console.log("Ethereum wallet connected:", ethAddress);
+      setHasNotified(true);
       onConnected(ethAddress);
       toast({
         title: "Ethereum Wallet Connected",
         description: `Connected: ${ethAddress.substring(0, 8)}...`,
       });
-    }, 100);
-  }
+    }
+  }, [ethConnected, ethAddress, selectedChain, hasNotified, onConnected]);
+
+  // Log connection state changes
+  useEffect(() => {
+    console.log("Solana state:", { solanaConnected, solanaConnecting, publicKey: publicKey?.toBase58() });
+  }, [solanaConnected, solanaConnecting, publicKey]);
 
   return (
     <Card className="shadow-strong border-border/50 backdrop-blur-sm bg-card/80">
@@ -100,10 +112,10 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
               </>
             )}
             
-            {selectedChain && !(solanaConnected || ethConnected) && (
-              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+            {selectedChain === "solana" && (solanaConnecting || !solanaConnected) && (
+              <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Waiting for wallet connection...</span>
+                <span>Waiting for wallet approval...</span>
               </div>
             )}
             
