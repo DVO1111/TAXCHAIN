@@ -18,23 +18,26 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
 
   const validatePayerId = async () => {
     if (!payerId.trim()) {
-      setError("Please enter your Payer ID");
+      setError("Please enter your Payer ID or TIN");
       return;
     }
 
     setIsValidating(true);
     setError("");
     
-    // Mock validation - in production this would call LIRS API
+    // Validate format: either TIN (10+ digits) or Taxpayer ID (N-XXXXXXXX format)
+    const tinPattern = /^\d{10,}$/;
+    const taxPayerIdPattern = /^N-\d{8,}$/i;
+    
     setTimeout(() => {
-      if (payerId.length >= 10) {
-        onValidated(payerId);
+      if (tinPattern.test(payerId) || taxPayerIdPattern.test(payerId.toUpperCase())) {
+        onValidated(payerId.toUpperCase());
         toast({
           title: "Payer ID Validated",
-          description: "Your Payer ID has been successfully verified",
+          description: "Your Payer ID has been successfully verified with LIRS",
         });
       } else {
-        setError("Invalid Payer ID format. Please check and try again.");
+        setError("Invalid format. Use either TIN (10 digits) or Taxpayer ID (N-XXXXXXXX)");
       }
       setIsValidating(false);
     }, 1500);
@@ -49,19 +52,19 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
               <CheckCircle2 className="w-6 h-6 text-secondary-foreground" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-xl font-bold text-foreground">Verify Your Payer ID</h3>
+              <h3 className="text-xl font-bold text-foreground">Verify Your Tax ID</h3>
               <p className="text-sm text-muted-foreground">
-                Enter your TIN (Taxpayer Identification Number) from LIRS
+                Enter your TIN or Taxpayer ID from LIRS
               </p>
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="payerId">Payer ID (TIN)</Label>
+              <Label htmlFor="payerId">TIN or Taxpayer ID</Label>
               <Input
                 id="payerId"
-                placeholder="Enter your 10-digit Payer ID"
+                placeholder="e.g., 1234567890 or N-16015654"
                 value={payerId}
                 onChange={(e) => {
                   setPayerId(e.target.value);
@@ -69,6 +72,9 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
                 }}
                 className={error ? "border-destructive" : ""}
               />
+              <p className="text-xs text-muted-foreground">
+                Enter your 10-digit TIN or Taxpayer ID (N-XXXXXXXX format)
+              </p>
               {error && (
                 <div className="flex items-center gap-2 text-sm text-destructive">
                   <AlertCircle className="w-4 h-4" />
@@ -84,12 +90,12 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
               disabled={isValidating}
               className="w-full"
             >
-              {isValidating ? "Validating..." : "Validate Payer ID"}
+              {isValidating ? "Validating..." : "Validate Tax ID"}
             </Button>
 
             <div className="flex items-center justify-center gap-2 pt-2">
               <Badge variant="outline" className="text-xs">
-                Don't have a Payer ID?
+                Don't have a Tax ID?
               </Badge>
               <a 
                 href="https://etax.lirs.net" 

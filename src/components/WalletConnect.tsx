@@ -1,30 +1,55 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wallet } from "lucide-react";
+import { Wallet, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useWalletModal } from "@solana/wallet-adapter-react-ui";
+import { useAccount, useConnect } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
 
 interface WalletConnectProps {
   onConnected: (walletAddress: string) => void;
 }
 
 const WalletConnect = ({ onConnected }: WalletConnectProps) => {
-  const [isConnecting, setIsConnecting] = useState(false);
+  const [selectedChain, setSelectedChain] = useState<"solana" | "ethereum" | null>(null);
+  
+  // Solana wallet hooks
+  const { publicKey, connected: solanaConnected } = useWallet();
+  const { setVisible } = useWalletModal();
+  
+  // Ethereum wallet hooks
+  const { address: ethAddress, isConnected: ethConnected } = useAccount();
 
-  const connectWallet = async () => {
-    setIsConnecting(true);
-    
-    // Mock wallet connection - in production this would integrate with actual Web3 providers
-    setTimeout(() => {
-      const mockAddress = "0x" + Math.random().toString(16).substring(2, 42);
-      onConnected(mockAddress);
-      toast({
-        title: "Wallet Connected",
-        description: `Successfully connected ${mockAddress.substring(0, 8)}...`,
-      });
-      setIsConnecting(false);
-    }, 1500);
+  // Handle Solana wallet connection
+  const handleSolanaConnect = () => {
+    setSelectedChain("solana");
+    setVisible(true);
   };
+
+  // Monitor Solana connection
+  if (solanaConnected && publicKey && selectedChain === "solana") {
+    const address = publicKey.toBase58();
+    setTimeout(() => {
+      onConnected(address);
+      toast({
+        title: "Solana Wallet Connected",
+        description: `Connected: ${address.substring(0, 8)}...`,
+      });
+    }, 100);
+  }
+
+  // Monitor Ethereum connection
+  if (ethConnected && ethAddress && selectedChain === "ethereum") {
+    setTimeout(() => {
+      onConnected(ethAddress);
+      toast({
+        title: "Ethereum Wallet Connected",
+        description: `Connected: ${ethAddress.substring(0, 8)}...`,
+      });
+    }, 100);
+  }
 
   return (
     <Card className="shadow-strong border-border/50 backdrop-blur-sm bg-card/80">
@@ -44,17 +69,46 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
           </div>
 
           <div className="flex flex-col gap-3">
-            <Button 
-              size="lg" 
-              variant="hero"
-              onClick={connectWallet}
-              disabled={isConnecting}
-              className="w-full"
-            >
-              {isConnecting ? "Connecting..." : "Connect Wallet"}
-            </Button>
+            {!selectedChain && (
+              <>
+                <Button 
+                  size="lg" 
+                  variant="hero"
+                  onClick={handleSolanaConnect}
+                  className="w-full"
+                >
+                  Connect Solana Wallet
+                </Button>
+                
+                <div 
+                  onClick={() => setSelectedChain("ethereum")}
+                  className="w-full"
+                >
+                  <ConnectButton.Custom>
+                    {({ openConnectModal }) => (
+                      <Button
+                        size="lg"
+                        variant="secondary"
+                        onClick={openConnectModal}
+                        className="w-full"
+                      >
+                        Connect Ethereum Wallet
+                      </Button>
+                    )}
+                  </ConnectButton.Custom>
+                </div>
+              </>
+            )}
+            
+            {selectedChain && !(solanaConnected || ethConnected) && (
+              <div className="flex items-center justify-center gap-2 text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Waiting for wallet connection...</span>
+              </div>
+            )}
+            
             <p className="text-xs text-muted-foreground">
-              Supports Phantom, Metamask, WalletConnect
+              Supports Phantom, Solflare, Metamask, WalletConnect
             </p>
           </div>
         </div>
