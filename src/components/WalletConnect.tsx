@@ -24,11 +24,16 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
   const { address: ethAddress, isConnected: ethConnected } = useAccount();
 
   // Handle Solana wallet connection
-  const handleSolanaConnect = () => {
+  const handleSolanaConnect = async () => {
     console.log("Opening Solana wallet selection modal");
     setSelectedChain("solana");
     setHasNotified(false);
-    setVisible(true);
+    
+    // Add a small delay to ensure state is set before opening modal
+    setTimeout(() => {
+      console.log("Setting wallet modal visible");
+      setVisible(true);
+    }, 100);
   };
 
   // Handle Ethereum wallet connection
