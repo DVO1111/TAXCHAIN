@@ -17,48 +17,25 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
   const [hasNotified, setHasNotified] = useState(false);
   
   // Solana wallet hooks
-  const { publicKey, connected: solanaConnected, connecting: solanaConnecting, select, wallets, connect } = useWallet();
+  const { publicKey, connected: solanaConnected, connecting: solanaConnecting } = useWallet();
   const { setVisible } = useWalletModal();
   
   // Ethereum wallet hooks
   const { address: ethAddress, isConnected: ethConnected } = useAccount();
 
   // Handle Solana wallet connection
-  const handleSolanaConnect = async () => {
-    try {
-      console.log("Attempting Solana wallet connection");
-      setSelectedChain("solana");
-      setHasNotified(false);
-      
-      // Try to find Phantom wallet first
-      const phantomWallet = wallets.find(wallet => wallet.adapter.name === 'Phantom');
-      
-      if (phantomWallet) {
-        console.log("Found Phantom wallet, selecting and connecting...");
-        try {
-          // Select the wallet first
-          await select(phantomWallet.adapter.name);
-          console.log("Wallet selected, now connecting...");
-          // The wallet adapter should automatically prompt for connection
-          // We just need to wait for the connection state to change
-        } catch (selectError) {
-          console.error("Selection error:", selectError);
-          // If selection fails, try the modal
-          setVisible(true);
-        }
-      } else {
-        // Fallback to modal if Phantom not found
-        console.log("Phantom not found, opening wallet modal");
-        setVisible(true);
-      }
-    } catch (error) {
-      console.error("Error in handleSolanaConnect:", error);
-      toast({
-        title: "Connection Error",
-        description: "Failed to connect wallet. Please try again.",
-        variant: "destructive",
-      });
-    }
+  const handleSolanaConnect = () => {
+    console.log("Opening Solana wallet selection modal");
+    setSelectedChain("solana");
+    setHasNotified(false);
+    setVisible(true);
+  };
+
+  // Handle Ethereum wallet connection
+  const handleEthereumConnect = () => {
+    console.log("Opening Ethereum wallet modal");
+    setSelectedChain("ethereum");
+    setHasNotified(false);
   };
 
   // Monitor Solana connection with useEffect
@@ -122,16 +99,16 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
                   Connect Solana Wallet
                 </Button>
                 
-                <div 
-                  onClick={() => setSelectedChain("ethereum")}
-                  className="w-full"
-                >
+                <div className="w-full">
                   <ConnectButton.Custom>
                     {({ openConnectModal }) => (
                       <Button
                         size="lg"
                         variant="secondary"
-                        onClick={openConnectModal}
+                        onClick={() => {
+                          handleEthereumConnect();
+                          openConnectModal();
+                        }}
                         className="w-full"
                       >
                         Connect Ethereum Wallet
