@@ -129,7 +129,7 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
               </>
             )}
             
-            {selectedChain === "solana" && (solanaConnecting || !solanaConnected) && (
+            {solanaConnecting && selectedChain === "solana" && (
               <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Waiting for wallet approval...</span>
