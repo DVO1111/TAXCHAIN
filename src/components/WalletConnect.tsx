@@ -65,10 +65,20 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
     }
   }, [ethConnected, ethAddress, selectedChain, hasNotified, onConnected]);
 
-  // Log connection state changes
+  // Log connection state changes for debugging
   useEffect(() => {
-    console.log("Solana state:", { solanaConnected, solanaConnecting, publicKey: publicKey?.toBase58() });
-  }, [solanaConnected, solanaConnecting, publicKey]);
+    console.log("Solana state:", { 
+      solanaConnected, 
+      solanaConnecting, 
+      publicKey: publicKey?.toBase58(),
+      selectedChain 
+    });
+    
+    // If connecting is stuck, show helpful message
+    if (solanaConnecting && selectedChain === "solana") {
+      console.log("Waiting for Phantom approval - check your browser extension");
+    }
+  }, [solanaConnected, solanaConnecting, publicKey, selectedChain]);
 
   return (
     <Card className="shadow-strong border-border/50 backdrop-blur-sm bg-card/80">
