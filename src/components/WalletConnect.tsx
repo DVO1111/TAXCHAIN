@@ -17,18 +17,51 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
   const [hasNotified, setHasNotified] = useState(false);
   
   // Solana wallet hooks
-  const { publicKey, connected: solanaConnected, connecting: solanaConnecting } = useWallet();
+  const { publicKey, connected: solanaConnected, connecting: solanaConnecting, select, wallets, connect } = useWallet();
   const { setVisible } = useWalletModal();
   
   // Ethereum wallet hooks
   const { address: ethAddress, isConnected: ethConnected } = useAccount();
 
   // Handle Solana wallet connection
-  const handleSolanaConnect = () => {
-    console.log("Opening Solana wallet modal");
-    setSelectedChain("solana");
-    setHasNotified(false);
-    setVisible(true);
+  const handleSolanaConnect = async () => {
+    try {
+      console.log("Attempting Solana wallet connection");
+      setSelectedChain("solana");
+      setHasNotified(false);
+      
+      // Try to find Phantom wallet first
+      const phantomWallet = wallets.find(wallet => wallet.adapter.name === 'Phantom');
+      
+      if (phantomWallet) {
+        console.log("Found Phantom wallet, selecting...");
+        select(phantomWallet.adapter.name);
+        // Wait a bit for selection to complete
+        setTimeout(async () => {
+          try {
+            await connect();
+          } catch (err) {
+            console.error("Connection error:", err);
+            toast({
+              title: "Connection Failed",
+              description: "Please make sure your wallet is unlocked and try again.",
+              variant: "destructive",
+            });
+          }
+        }, 100);
+      } else {
+        // Fallback to modal if Phantom not found
+        console.log("Phantom not found, opening wallet modal");
+        setVisible(true);
+      }
+    } catch (error) {
+      console.error("Error in handleSolanaConnect:", error);
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect wallet. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   // Monitor Solana connection with useEffect
