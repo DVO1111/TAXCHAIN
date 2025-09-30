@@ -34,21 +34,18 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
       const phantomWallet = wallets.find(wallet => wallet.adapter.name === 'Phantom');
       
       if (phantomWallet) {
-        console.log("Found Phantom wallet, selecting...");
-        select(phantomWallet.adapter.name);
-        // Wait a bit for selection to complete
-        setTimeout(async () => {
-          try {
-            await connect();
-          } catch (err) {
-            console.error("Connection error:", err);
-            toast({
-              title: "Connection Failed",
-              description: "Please make sure your wallet is unlocked and try again.",
-              variant: "destructive",
-            });
-          }
-        }, 100);
+        console.log("Found Phantom wallet, selecting and connecting...");
+        try {
+          // Select the wallet first
+          await select(phantomWallet.adapter.name);
+          console.log("Wallet selected, now connecting...");
+          // The wallet adapter should automatically prompt for connection
+          // We just need to wait for the connection state to change
+        } catch (selectError) {
+          console.error("Selection error:", selectError);
+          // If selection fails, try the modal
+          setVisible(true);
+        }
       } else {
         // Fallback to modal if Phantom not found
         console.log("Phantom not found, opening wallet modal");
