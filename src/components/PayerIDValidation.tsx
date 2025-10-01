@@ -15,8 +15,6 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
   const [payerId, setPayerId] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState("");
-  const [isValidated, setIsValidated] = useState(false);
-  const [governmentName, setGovernmentName] = useState("");
 
   const validatePayerId = async () => {
     if (!payerId.trim()) {
@@ -33,32 +31,18 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
     
     setTimeout(() => {
       if (tinPattern.test(payerId) || taxPayerIdPattern.test(payerId.toUpperCase())) {
-        // Simulate fetching government name from LIRS
-        const mockNames = [
-          "ADEKUNLE JOHNSON OLAMIDE",
-          "CHIDINMA BLESSING OKAFOR",
-          "OLUWASEUN GRACE ADEBAYO",
-          "MOHAMMED ABUBAKAR YUSUF",
-          "CHINONSO MICHAEL NWANKWO"
-        ];
-        const randomName = mockNames[Math.floor(Math.random() * mockNames.length)];
-        
-        setGovernmentName(randomName);
-        setIsValidated(true);
         toast({
-          title: "Payer ID Validated",
-          description: `Welcome, ${randomName}`,
+          title: "Tax ID Validated",
+          description: "Format verified successfully",
         });
+        onValidated(payerId.toUpperCase());
       } else {
         setError("Invalid format. Use either TIN (10 digits) or Taxpayer ID (N-XXXXXXXX)");
       }
       setIsValidating(false);
-    }, 1500);
+    }, 1000);
   };
 
-  const handleContinue = () => {
-    onValidated(payerId.toUpperCase());
-  };
 
   return (
     <Card className="shadow-strong border-border/50 backdrop-blur-sm bg-card/80">
@@ -88,7 +72,6 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
                   setError("");
                 }}
                 className={error ? "border-destructive" : ""}
-                disabled={isValidated}
               />
               <p className="text-xs text-muted-foreground">
                 Enter your 10-digit TIN or Taxpayer ID (N-XXXXXXXX format)
@@ -101,40 +84,17 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
               )}
             </div>
 
-            {isValidated && governmentName && (
-              <div className="p-4 rounded-lg bg-gradient-secondary border border-secondary/20">
-                <div className="space-y-1">
-                  <p className="text-sm text-secondary-foreground/80 font-medium">Registered Name</p>
-                  <p className="text-lg font-bold text-secondary-foreground">
-                    {governmentName}
-                  </p>
-                </div>
-              </div>
-            )}
+            <Button 
+              size="lg" 
+              variant="secondary"
+              onClick={validatePayerId}
+              disabled={isValidating}
+              className="w-full"
+            >
+              {isValidating ? "Validating..." : "Validate and Continue"}
+            </Button>
 
-            {!isValidated ? (
-              <Button 
-                size="lg" 
-                variant="secondary"
-                onClick={validatePayerId}
-                disabled={isValidating}
-                className="w-full"
-              >
-                {isValidating ? "Validating..." : "Validate Tax ID"}
-              </Button>
-            ) : (
-              <Button 
-                size="lg" 
-                variant="secondary"
-                onClick={handleContinue}
-                className="w-full"
-              >
-                Continue
-              </Button>
-            )}
-
-            {!isValidated && (
-              <div className="flex items-center justify-center gap-2 pt-2">
+            <div className="flex items-center justify-center gap-2 pt-2">
                 <Badge variant="outline" className="text-xs">
                   Don't have a Tax ID?
                 </Badge>
@@ -146,8 +106,7 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
                 >
                   Create one here <ExternalLink className="w-3 h-3" />
                 </a>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </CardContent>

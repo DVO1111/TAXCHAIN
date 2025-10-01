@@ -8,7 +8,7 @@ import { Calculator, TrendingUp } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface TaxCalculatorProps {
-  onCalculated: (taxAmount: number, income: number) => void;
+  onCalculated: (taxAmount: number, income: number, breakdown: string[], taxType: string) => void;
 }
 
 const TaxCalculator = ({ onCalculated }: TaxCalculatorProps) => {
@@ -114,7 +114,7 @@ const TaxCalculator = ({ onCalculated }: TaxCalculatorProps) => {
       
       setTaxAmount(result.tax);
       setTaxBreakdown(result.breakdown);
-      onCalculated(result.tax, incomeValue);
+      onCalculated(result.tax, incomeValue, result.breakdown, taxType);
       setIsCalculating(false);
       
       toast({

@@ -17,6 +17,8 @@ const Index = () => {
   const [payerId, setPayerId] = useState("");
   const [taxAmount, setTaxAmount] = useState(0);
   const [income, setIncome] = useState(0);
+  const [taxBreakdown, setTaxBreakdown] = useState<string[]>([]);
+  const [taxType, setTaxType] = useState("");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
   const handleWalletConnected = (address: string) => {
@@ -29,9 +31,11 @@ const Index = () => {
     setCurrentStep("calculator");
   };
 
-  const handleTaxCalculated = (tax: number, incomeValue: number) => {
+  const handleTaxCalculated = (tax: number, incomeValue: number, breakdown: string[], type: string) => {
     setTaxAmount(tax);
     setIncome(incomeValue);
+    setTaxBreakdown(breakdown);
+    setTaxType(type);
     setShowPaymentModal(true);
   };
 
@@ -224,6 +228,8 @@ const Index = () => {
         open={showPaymentModal}
         onOpenChange={setShowPaymentModal}
         taxAmount={taxAmount}
+        taxBreakdown={taxBreakdown}
+        taxType={taxType}
         onPaymentComplete={handlePaymentComplete}
       />
     </div>

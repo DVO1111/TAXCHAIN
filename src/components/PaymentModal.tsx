@@ -9,10 +9,18 @@ interface PaymentModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   taxAmount: number;
+  taxBreakdown: string[];
+  taxType: string;
   onPaymentComplete: () => void;
 }
 
-const PaymentModal = ({ open, onOpenChange, taxAmount, onPaymentComplete }: PaymentModalProps) => {
+const PaymentModal = ({ open, onOpenChange, taxAmount, taxBreakdown, taxType, onPaymentComplete }: PaymentModalProps) => {
+  const taxTypeLabels: Record<string, string> = {
+    paye: "PAYE (Pay As You Earn)",
+    vat: "VAT (Value Added Tax)",
+    cit: "CIT (Company Income Tax)",
+    withholding: "Withholding Tax"
+  };
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState("USDT");
 
@@ -65,10 +73,27 @@ const PaymentModal = ({ open, onOpenChange, taxAmount, onPaymentComplete }: Paym
         </DialogHeader>
 
         <div className="space-y-6">
-          <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-            <p className="text-sm text-muted-foreground">Total Tax Amount</p>
-            <p className="text-3xl font-bold text-foreground">₦{taxAmount.toLocaleString()}</p>
+          <div className="p-4 rounded-lg bg-muted/50 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">Tax Type</p>
+              <Badge variant="secondary">{taxTypeLabels[taxType] || taxType}</Badge>
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground mb-1">Total Tax Amount</p>
+              <p className="text-3xl font-bold text-foreground">₦{taxAmount.toLocaleString()}</p>
+            </div>
           </div>
+
+          {taxBreakdown.length > 0 && (
+            <div className="p-4 rounded-lg bg-card border">
+              <p className="text-sm font-medium mb-2">Tax Calculation:</p>
+              <ul className="space-y-1">
+                {taxBreakdown.map((line, index) => (
+                  <li key={index} className="text-xs text-muted-foreground">• {line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div className="space-y-3">
             <Label className="text-sm font-medium">Select Cryptocurrency</Label>

@@ -1,89 +1,85 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Wallet, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Wallet, Loader2, Coins } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useWallet } from "@solana/wallet-adapter-react";
 import { useWalletModal } from "@solana/wallet-adapter-react-ui";
-import { useAccount } from "wagmi";
+import { useAccount, useBalance } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useConnection } from "@solana/wallet-adapter-react";
+import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 interface WalletConnectProps {
   onConnected: (walletAddress: string) => void;
 }
 
 const WalletConnect = ({ onConnected }: WalletConnectProps) => {
-  const [selectedChain, setSelectedChain] = useState<"solana" | "ethereum" | null>(null);
   const [hasNotified, setHasNotified] = useState(false);
+  const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
   
   // Solana wallet hooks
   const { publicKey, connected: solanaConnected, connecting: solanaConnecting } = useWallet();
   const { setVisible } = useWalletModal();
+  const { connection } = useConnection();
   
   // Ethereum wallet hooks
   const { address: ethAddress, isConnected: ethConnected } = useAccount();
+  const { data: ethBalanceData } = useBalance({
+    address: ethAddress,
+  });
 
-  // Handle Solana wallet connection
-  const handleSolanaConnect = async () => {
-    console.log("Opening Solana wallet selection modal");
-    setSelectedChain("solana");
+  // Handle wallet connection - opens unified modal
+  const handleConnectWallet = async () => {
+    console.log("Opening wallet selection modal");
     setHasNotified(false);
-    
-    // Add a small delay to ensure state is set before opening modal
-    setTimeout(() => {
-      console.log("Setting wallet modal visible");
-      setVisible(true);
-    }, 100);
+    setVisible(true);
   };
 
-  // Handle Ethereum wallet connection
-  const handleEthereumConnect = () => {
-    console.log("Opening Ethereum wallet modal");
-    setSelectedChain("ethereum");
-    setHasNotified(false);
-  };
-
-  // Monitor Solana connection with useEffect
+  // Fetch Solana balance
   useEffect(() => {
-    if (solanaConnected && publicKey && selectedChain === "solana" && !hasNotified) {
+    if (solanaConnected && publicKey) {
+      connection.getBalance(publicKey).then((balance) => {
+        setSolanaBalance(balance / LAMPORTS_PER_SOL);
+      });
+    }
+  }, [solanaConnected, publicKey, connection]);
+
+  // Monitor Solana connection
+  useEffect(() => {
+    if (solanaConnected && publicKey && !hasNotified) {
       console.log("Solana wallet connected:", publicKey.toBase58());
       const address = publicKey.toBase58();
       setHasNotified(true);
       onConnected(address);
       toast({
-        title: "Solana Wallet Connected",
+        title: "Wallet Connected",
         description: `Connected: ${address.substring(0, 8)}...`,
       });
     }
-  }, [solanaConnected, publicKey, selectedChain, hasNotified, onConnected]);
+  }, [solanaConnected, publicKey, hasNotified, onConnected]);
 
-  // Monitor Ethereum connection with useEffect
+  // Monitor Ethereum connection
   useEffect(() => {
-    if (ethConnected && ethAddress && selectedChain === "ethereum" && !hasNotified) {
+    if (ethConnected && ethAddress && !hasNotified) {
       console.log("Ethereum wallet connected:", ethAddress);
       setHasNotified(true);
       onConnected(ethAddress);
       toast({
-        title: "Ethereum Wallet Connected",
+        title: "Wallet Connected",
         description: `Connected: ${ethAddress.substring(0, 8)}...`,
       });
     }
-  }, [ethConnected, ethAddress, selectedChain, hasNotified, onConnected]);
+  }, [ethConnected, ethAddress, hasNotified, onConnected]);
 
-  // Log connection state changes for debugging
-  useEffect(() => {
-    console.log("Solana state:", { 
-      solanaConnected, 
-      solanaConnecting, 
-      publicKey: publicKey?.toBase58(),
-      selectedChain 
-    });
-    
-    // If connecting is stuck, show helpful message
-    if (solanaConnecting && selectedChain === "solana") {
-      console.log("Waiting for Phantom approval - check your browser extension");
-    }
-  }, [solanaConnected, solanaConnecting, publicKey, selectedChain]);
+  const isConnected = solanaConnected || ethConnected;
+  const walletAddress = publicKey?.toBase58() || ethAddress;
+  const balance = solanaConnected && solanaBalance !== null 
+    ? `${solanaBalance.toFixed(4)} SOL` 
+    : ethConnected && ethBalanceData 
+    ? `${parseFloat(ethBalanceData.formatted).toFixed(4)} ${ethBalanceData.symbol}`
+    : null;
 
   return (
     <Card className="shadow-strong border-border/50 backdrop-blur-sm bg-card/80">
@@ -102,48 +98,64 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
             </p>
           </div>
 
-          <div className="flex flex-col gap-3">
-            {!selectedChain && (
+          <div className="flex flex-col gap-4">
+            {!isConnected ? (
               <>
-                <Button 
-                  size="lg" 
-                  variant="hero"
-                  onClick={handleSolanaConnect}
-                  className="w-full"
-                >
-                  Connect Solana Wallet
-                </Button>
+                <ConnectButton.Custom>
+                  {({ openConnectModal }) => (
+                    <Button 
+                      size="lg" 
+                      variant="hero"
+                      onClick={() => {
+                        handleConnectWallet();
+                        openConnectModal();
+                      }}
+                      className="w-full"
+                    >
+                      <Wallet className="w-5 h-5 mr-2" />
+                      Connect Wallet
+                    </Button>
+                  )}
+                </ConnectButton.Custom>
                 
-                <div className="w-full">
-                  <ConnectButton.Custom>
-                    {({ openConnectModal }) => (
-                      <Button
-                        size="lg"
-                        variant="secondary"
-                        onClick={() => {
-                          handleEthereumConnect();
-                          openConnectModal();
-                        }}
-                        className="w-full"
-                      >
-                        Connect Ethereum Wallet
-                      </Button>
-                    )}
-                  </ConnectButton.Custom>
-                </div>
+                {solanaConnecting && (
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground py-2">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Waiting for wallet approval...</span>
+                  </div>
+                )}
+                
+                <p className="text-xs text-muted-foreground">
+                  Supports Phantom, Solflare, MetaMask, WalletConnect and more
+                </p>
               </>
-            )}
-            
-            {solanaConnecting && selectedChain === "solana" && (
-              <div className="flex items-center justify-center gap-2 text-muted-foreground py-4">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Waiting for wallet approval...</span>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-4 rounded-lg bg-gradient-secondary border border-secondary/20">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-secondary-foreground/80">Wallet Address</span>
+                      <Badge variant="outline" className="text-xs">Connected</Badge>
+                    </div>
+                    <p className="text-sm font-mono text-secondary-foreground break-all">
+                      {walletAddress}
+                    </p>
+                  </div>
+                </div>
+
+                {balance && (
+                  <div className="p-4 rounded-lg bg-gradient-accent border border-accent/20">
+                    <div className="flex items-center gap-3">
+                      <Coins className="w-5 h-5 text-accent-foreground" />
+                      <div>
+                        <p className="text-xs text-accent-foreground/70">Balance</p>
+                        <p className="text-lg font-bold text-accent-foreground">{balance}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-            
-            <p className="text-xs text-muted-foreground">
-              Supports Phantom, Solflare, Metamask, WalletConnect
-            </p>
           </div>
         </div>
       </CardContent>
