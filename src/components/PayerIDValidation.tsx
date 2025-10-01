@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, ExternalLink, AlertCircle } from "lucide-react";
+import { CheckCircle2, ExternalLink, AlertCircle, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 interface PayerIDValidationProps {
@@ -15,6 +15,8 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
   const [payerId, setPayerId] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [error, setError] = useState("");
+  const [verifiedName, setVerifiedName] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
 
   const validatePayerId = async () => {
     if (!payerId.trim()) {
@@ -24,23 +26,40 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
 
     setIsValidating(true);
     setError("");
+    setVerifiedName("");
     
-    // Validate format: either TIN (10+ digits) or Taxpayer ID (N-XXXXXXXX format)
-    const tinPattern = /^\d{10,}$/;
-    const taxPayerIdPattern = /^N-\d{8,}$/i;
-    
-    setTimeout(() => {
-      if (tinPattern.test(payerId) || taxPayerIdPattern.test(payerId.toUpperCase())) {
+    try {
+      // Call Cloud function to verify Tax ID with LIRS
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/verify-tax-id`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ taxId: payerId.trim() })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setVerifiedName(data.taxpayerName);
+        setIsVerified(true);
         toast({
-          title: "Tax ID Validated",
-          description: "Format verified successfully",
+          title: "Tax ID Verified",
+          description: `Verified: ${data.taxpayerName}`,
         });
         onValidated(payerId.toUpperCase());
       } else {
-        setError("Invalid format. Use either TIN (10 digits) or Taxpayer ID (N-XXXXXXXX)");
+        setError(data.error || "Verification failed. Please check your Tax ID.");
       }
+    } catch (err) {
+      console.error('Verification error:', err);
+      setError("Unable to verify Tax ID. Please try again.");
+    } finally {
       setIsValidating(false);
-    }, 1000);
+    }
   };
 
 
@@ -70,8 +89,11 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
                 onChange={(e) => {
                   setPayerId(e.target.value);
                   setError("");
+                  setIsVerified(false);
+                  setVerifiedName("");
                 }}
                 className={error ? "border-destructive" : ""}
+                disabled={isVerified}
               />
               <p className="text-xs text-muted-foreground">
                 Enter your 10-digit TIN or Taxpayer ID (N-XXXXXXXX format)
@@ -82,16 +104,35 @@ const PayerIDValidation = ({ onValidated }: PayerIDValidationProps) => {
                   {error}
                 </div>
               )}
+              {isVerified && verifiedName && (
+                <div className="p-4 rounded-lg bg-gradient-secondary border border-secondary/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="w-5 h-5 text-success" />
+                    <span className="text-sm font-medium text-secondary-foreground">Verified Taxpayer</span>
+                  </div>
+                  <p className="text-lg font-bold text-secondary-foreground">{verifiedName}</p>
+                  <p className="text-xs text-secondary-foreground/70 mt-1">Tax ID: {payerId.toUpperCase()}</p>
+                </div>
+              )}
             </div>
 
             <Button 
               size="lg" 
               variant="secondary"
               onClick={validatePayerId}
-              disabled={isValidating}
+              disabled={isValidating || isVerified}
               className="w-full"
             >
-              {isValidating ? "Validating..." : "Validate and Continue"}
+              {isValidating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Verifying with LIRS...
+                </>
+              ) : isVerified ? (
+                "Verified - Continue"
+              ) : (
+                "Verify Tax ID"
+              )}
             </Button>
 
             <div className="flex items-center justify-center gap-2 pt-2">

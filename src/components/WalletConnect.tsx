@@ -18,9 +18,10 @@ interface WalletConnectProps {
 const WalletConnect = ({ onConnected }: WalletConnectProps) => {
   const [hasNotified, setHasNotified] = useState(false);
   const [solanaBalance, setSolanaBalance] = useState<number | null>(null);
+  const [connectionTime, setConnectionTime] = useState<number | null>(null);
   
   // Solana wallet hooks
-  const { publicKey, connected: solanaConnected, connecting: solanaConnecting } = useWallet();
+  const { publicKey, connected: solanaConnected, connecting: solanaConnecting, disconnect: solanaDisconnect } = useWallet();
   const { setVisible } = useWalletModal();
   const { connection } = useConnection();
   
@@ -65,6 +66,7 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
     if (ethConnected && ethAddress && !hasNotified) {
       console.log("Ethereum wallet connected:", ethAddress);
       setHasNotified(true);
+      setConnectionTime(Date.now());
       onConnected(ethAddress);
       toast({
         title: "Wallet Connected",
@@ -72,6 +74,27 @@ const WalletConnect = ({ onConnected }: WalletConnectProps) => {
       });
     }
   }, [ethConnected, ethAddress, hasNotified, onConnected]);
+
+  // Auto-disconnect after 5 minutes
+  useEffect(() => {
+    if (!connectionTime) return;
+
+    const disconnectTimer = setTimeout(() => {
+      if (solanaConnected) {
+        solanaDisconnect();
+      }
+      // Note: Ethereum disconnect is handled by RainbowKit
+      setConnectionTime(null);
+      setHasNotified(false);
+      toast({
+        title: "Session Expired",
+        description: "Please reconnect your wallet to continue",
+        variant: "destructive"
+      });
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearTimeout(disconnectTimer);
+  }, [connectionTime, solanaConnected, solanaDisconnect]);
 
   const isConnected = solanaConnected || ethConnected;
   const walletAddress = publicKey?.toBase58() || ethAddress;

@@ -2,8 +2,10 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, CheckCircle2, Coins } from "lucide-react";
+import { Loader2, CheckCircle2, Coins, FileSignature } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { useWallet } from "@solana/wallet-adapter-react";
+import { useSignMessage, useAccount } from "wagmi";
 
 interface PaymentModalProps {
   open: boolean;
@@ -23,6 +25,15 @@ const PaymentModal = ({ open, onOpenChange, taxAmount, taxBreakdown, taxType, on
   };
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState("USDT");
+  const [isSigning, setIsSigning] = useState(false);
+  const [signatureVerified, setSignatureVerified] = useState(false);
+
+  // Solana wallet hooks
+  const { publicKey, signMessage: solanaSignMessage } = useWallet();
+  
+  // Ethereum wallet hooks
+  const { address: ethAddress } = useAccount();
+  const { signMessageAsync: ethSignMessage } = useSignMessage();
 
   const cryptoOptions = [
     { symbol: "USDT", name: "Tether", rate: 1 },
@@ -34,7 +45,54 @@ const PaymentModal = ({ open, onOpenChange, taxAmount, taxBreakdown, taxType, on
   const selectedOption = cryptoOptions.find(c => c.symbol === selectedCrypto);
   const cryptoAmount = selectedOption ? (taxAmount / 1600 * selectedOption.rate).toFixed(6) : "0";
 
+  const handleSignMessage = async () => {
+    if (signatureVerified) return;
+
+    setIsSigning(true);
+    try {
+      const message = `I authorize the payment of ₦${taxAmount.toLocaleString()} for ${taxTypeLabels[taxType]} tax.\n\nTimestamp: ${new Date().toISOString()}`;
+
+      if (publicKey && solanaSignMessage) {
+        // Solana wallet signature
+        const encodedMessage = new TextEncoder().encode(message);
+        const signature = await solanaSignMessage(encodedMessage);
+        console.log('Solana signature:', signature);
+      } else if (ethAddress && ethSignMessage) {
+        // Ethereum wallet signature
+        const signature = await ethSignMessage({ 
+          message,
+          account: ethAddress 
+        });
+        console.log('Ethereum signature:', signature);
+      }
+
+      setSignatureVerified(true);
+      toast({
+        title: "Message Signed",
+        description: "Payment authorization confirmed",
+      });
+    } catch (error) {
+      console.error('Signature error:', error);
+      toast({
+        title: "Signature Failed",
+        description: "Please sign the message to authorize payment",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
   const handlePayment = async () => {
+    if (!signatureVerified) {
+      toast({
+        title: "Signature Required",
+        description: "Please sign the message before payment",
+        variant: "destructive"
+      });
+      return;
+    }
+
     setIsProcessing(true);
     
     // Mock payment flow with off-ramp and Remita settlement
@@ -54,6 +112,7 @@ const PaymentModal = ({ open, onOpenChange, taxAmount, taxBreakdown, taxType, on
 
     setTimeout(() => {
       setIsProcessing(false);
+      setSignatureVerified(false);
       onPaymentComplete();
       toast({
         title: "Payment Successful!",
@@ -144,20 +203,51 @@ const PaymentModal = ({ open, onOpenChange, taxAmount, taxBreakdown, taxType, on
             </div>
           </div>
 
+          {!signatureVerified && (
+            <Button 
+              size="lg" 
+              variant="secondary"
+              onClick={handleSignMessage}
+              disabled={isSigning}
+              className="w-full"
+            >
+              {isSigning ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  Waiting for Signature...
+                </>
+              ) : (
+                <>
+                  <FileSignature className="w-4 h-4 mr-2" />
+                  Sign to Authorize Payment
+                </>
+              )}
+            </Button>
+          )}
+
+          {signatureVerified && (
+            <div className="p-3 rounded-lg bg-success/10 border border-success/20">
+              <div className="flex items-center gap-2 text-success">
+                <CheckCircle2 className="w-4 h-4" />
+                <span className="text-sm font-medium">Payment Authorized</span>
+              </div>
+            </div>
+          )}
+
           <Button 
             size="lg" 
             variant="success"
             onClick={handlePayment}
-            disabled={isProcessing}
+            disabled={isProcessing || !signatureVerified}
             className="w-full"
           >
             {isProcessing ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 Processing Payment...
               </>
             ) : (
-              "Pay Now"
+              "Complete Payment"
             )}
           </Button>
         </div>

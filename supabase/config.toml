@@ -1,0 +1,4 @@
+project_id = "txmeolkshhqvwoifmbiw"
+
+[functions.verify-tax-id]
+verify_jwt = false
