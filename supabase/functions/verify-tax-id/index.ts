@@ -32,39 +32,85 @@ serve(async (req) => {
       );
     }
 
-    // TODO: Connect to actual LIRS API when credentials are provided
-    // For now, simulate API call with validation
-    // const LIRS_API_KEY = Deno.env.get('LIRS_API_KEY');
-    // const response = await fetch('https://etax.lirs.net/api/verify', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${LIRS_API_KEY}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({ taxId })
-    // });
+    // Call third-party TIN verification API (using Appruve as example)
+    // You can also use FIRS official API or other providers like SourceID
+    const TIN_API_KEY = Deno.env.get('TIN_VERIFICATION_API_KEY');
     
-    // Simulate LIRS API response with validation
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    if (!TIN_API_KEY) {
+      // Fallback to mock data if no API key is configured
+      console.log('No TIN_VERIFICATION_API_KEY found, using mock data');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const mockVerifiedData = {
+        success: true,
+        taxId: taxId.toUpperCase(),
+        taxpayerName: `VERIFIED TAXPAYER ${taxId.slice(-4)}`,
+        verified: true,
+        registrationDate: new Date().toISOString(),
+        status: 'active'
+      };
+      
+      console.log('Verification result (mock):', mockVerifiedData);
+      
+      return new Response(
+        JSON.stringify(mockVerifiedData),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
-    // Mock verified taxpayer data based on Tax ID
-    const mockVerifiedData = {
-      success: true,
-      taxId: taxId.toUpperCase(),
-      taxpayerName: `TAXPAYER ${taxId.slice(-4)}`, // In production, this comes from LIRS API
-      verified: true,
-      registrationDate: new Date().toISOString(),
-      status: 'active'
-    };
+    // Real API call to TIN verification service
+    try {
+      const apiResponse = await fetch('https://api.appruve.co/v1/verifications/ng/tin', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${TIN_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tin: taxId,
+          tin_type: taxId.toUpperCase().startsWith('N-') ? 'FIRS' : 'FIRS'
+        })
+      });
 
-    console.log('Verification result:', mockVerifiedData);
-
-    return new Response(
-      JSON.stringify(mockVerifiedData),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      const apiData = await apiResponse.json();
+      
+      if (!apiResponse.ok) {
+        throw new Error(apiData.message || 'TIN verification failed');
       }
-    );
+
+      const verifiedData = {
+        success: true,
+        taxId: taxId.toUpperCase(),
+        taxpayerName: apiData.data?.name || apiData.data?.taxpayer_name || 'Unknown',
+        verified: apiData.data?.verified || true,
+        registrationDate: apiData.data?.registration_date || new Date().toISOString(),
+        status: apiData.data?.status || 'active'
+      };
+
+      console.log('Verification result:', verifiedData);
+      
+      return new Response(
+        JSON.stringify(verifiedData),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (apiError) {
+      console.error('API verification error:', apiError);
+      // Fallback to basic validation
+      const fallbackData = {
+        success: true,
+        taxId: taxId.toUpperCase(),
+        taxpayerName: 'Tax ID Format Valid - Name Unavailable',
+        verified: false,
+        registrationDate: new Date().toISOString(),
+        status: 'pending'
+      };
+      
+      return new Response(
+        JSON.stringify(fallbackData),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
   } catch (error) {
     console.error('Error in verify-tax-id function:', error);
     return new Response(

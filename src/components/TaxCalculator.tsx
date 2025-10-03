@@ -25,57 +25,121 @@ const TaxCalculator = ({ onCalculated }: TaxCalculatorProps) => {
     { value: "withholding", label: "Withholding Tax", description: "Various rates on payments" },
   ];
 
-  const calculatePAYE = (annualIncome: number) => {
-    let tax = 0;
+  const calculatePAYE = (grossIncome: number) => {
     const breakdown: string[] = [];
     
-    if (annualIncome <= 300000) {
-      tax = annualIncome * 0.07;
-      breakdown.push(`₦${annualIncome.toLocaleString()} × 7% = ₦${tax.toLocaleString()}`);
-    } else if (annualIncome <= 600000) {
-      const firstBracket = 21000;
-      const secondBracket = (annualIncome - 300000) * 0.11;
-      tax = firstBracket + secondBracket;
-      breakdown.push(`First ₦300,000 × 7% = ₦21,000`);
-      breakdown.push(`Next ₦${(annualIncome - 300000).toLocaleString()} × 11% = ₦${Math.round(secondBracket).toLocaleString()}`);
-    } else if (annualIncome <= 1100000) {
-      tax = 54000 + (annualIncome - 600000) * 0.15;
-      breakdown.push(`First ₦300,000 × 7% = ₦21,000`);
-      breakdown.push(`Next ₦300,000 × 11% = ₦33,000`);
-      breakdown.push(`Next ₦${(annualIncome - 600000).toLocaleString()} × 15% = ₦${Math.round((annualIncome - 600000) * 0.15).toLocaleString()}`);
-    } else if (annualIncome <= 1600000) {
-      tax = 129000 + (annualIncome - 1100000) * 0.19;
-      breakdown.push(`First ₦1,100,000 = ₦129,000`);
-      breakdown.push(`Next ₦${(annualIncome - 1100000).toLocaleString()} × 19% = ₦${Math.round((annualIncome - 1100000) * 0.19).toLocaleString()}`);
-    } else if (annualIncome <= 3200000) {
-      tax = 224000 + (annualIncome - 1600000) * 0.21;
-      breakdown.push(`First ₦1,600,000 = ₦224,000`);
-      breakdown.push(`Next ₦${(annualIncome - 1600000).toLocaleString()} × 21% = ₦${Math.round((annualIncome - 1600000) * 0.21).toLocaleString()}`);
-    } else {
-      tax = 560000 + (annualIncome - 3200000) * 0.24;
-      breakdown.push(`First ₦3,200,000 = ₦560,000`);
-      breakdown.push(`Above ₦3,200,000 × 24% = ₦${Math.round((annualIncome - 3200000) * 0.24).toLocaleString()}`);
+    breakdown.push(`Gross Income: ₦${grossIncome.toLocaleString()}`);
+    
+    // Tax-Free Allowance = Higher of ₦200,000 or (1% + 20% of Gross Income)
+    const percentageAllowance = (grossIncome * 0.01) + (grossIncome * 0.20);
+    const taxFreeAllowance = Math.max(200000, percentageAllowance);
+    breakdown.push(`Tax-Free Allowance: ₦${Math.round(taxFreeAllowance).toLocaleString()}`);
+    breakdown.push(`  (Higher of ₦200,000 or 21% of income)`);
+    
+    const taxableIncome = Math.max(0, grossIncome - taxFreeAllowance);
+    breakdown.push(`Taxable Income: ₦${Math.round(taxableIncome).toLocaleString()}`);
+    breakdown.push(``);
+    breakdown.push(`Progressive Tax Calculation:`);
+    
+    // Progressive tax rates
+    let tax = 0;
+    let remaining = taxableIncome;
+    
+    const bands = [
+      { limit: 300000, rate: 0.07, label: "First ₦300,000" },
+      { limit: 300000, rate: 0.11, label: "Next ₦300,000" },
+      { limit: 500000, rate: 0.15, label: "Next ₦500,000" },
+      { limit: 500000, rate: 0.19, label: "Next ₦500,000" },
+      { limit: 1600000, rate: 0.21, label: "Next ₦1,600,000" },
+      { limit: Infinity, rate: 0.24, label: "Above ₦3,200,000" }
+    ];
+    
+    for (const band of bands) {
+      if (remaining <= 0) break;
+      
+      const bandAmount = Math.min(remaining, band.limit);
+      const bandTax = bandAmount * band.rate;
+      tax += bandTax;
+      
+      if (bandAmount > 0) {
+        breakdown.push(`  ${band.label} @ ${(band.rate * 100)}%: ₦${Math.round(bandTax).toLocaleString()}`);
+      }
+      
+      remaining -= bandAmount;
     }
+    
+    breakdown.push(``);
+    breakdown.push(`Total PAYE Tax: ₦${Math.round(tax).toLocaleString()}`);
     
     return { tax: Math.round(tax), breakdown };
   };
 
-  const calculateVAT = (amount: number) => {
-    const tax = amount * 0.075;
-    const breakdown = [`₦${amount.toLocaleString()} × 7.5% = ₦${Math.round(tax).toLocaleString()}`];
-    return { tax: Math.round(tax), breakdown };
+  const calculateVAT = (salesAmount: number) => {
+    // VAT = Output VAT - Input VAT (assuming no input VAT for simplification)
+    const vatRate = 0.075; // 7.5% VAT rate in Nigeria
+    const outputVAT = salesAmount * vatRate;
+    
+    const breakdown: string[] = [
+      `Sales/Revenue: ₦${salesAmount.toLocaleString()}`,
+      `VAT Rate: 7.5%`,
+      ``,
+      `Output VAT (7.5% of Sales): ₦${Math.round(outputVAT).toLocaleString()}`,
+      `Less: Input VAT: ₦0 (not included)`,
+      ``,
+      `VAT Payable: ₦${Math.round(outputVAT).toLocaleString()}`
+    ];
+    
+    return { tax: Math.round(outputVAT), breakdown };
   };
 
-  const calculateCIT = (profit: number) => {
-    const tax = profit * 0.30;
-    const breakdown = [`₦${profit.toLocaleString()} × 30% = ₦${Math.round(tax).toLocaleString()}`];
-    return { tax: Math.round(tax), breakdown };
+  const calculateCIT = (taxableProfit: number) => {
+    // CIT rates based on company turnover
+    let citRate: number;
+    let rateDescription: string;
+    
+    if (taxableProfit < 25000000) {
+      citRate = 0; // Small companies below ₦25m
+      rateDescription = "Small Company (Below ₦25m turnover): 0%";
+    } else if (taxableProfit < 100000000) {
+      citRate = 0.20; // Medium companies ₦25m - ₦100m
+      rateDescription = "Medium Company (₦25m - ₦100m turnover): 20%";
+    } else {
+      citRate = 0.30; // Large companies above ₦100m
+      rateDescription = "Large Company (Above ₦100m turnover): 30%";
+    }
+    
+    const cit = taxableProfit * citRate;
+    
+    const breakdown: string[] = [
+      `Taxable Profit: ₦${taxableProfit.toLocaleString()}`,
+      ``,
+      rateDescription,
+      ``,
+      `CIT Amount: ₦${Math.round(cit).toLocaleString()}`
+    ];
+    
+    return { tax: Math.round(cit), breakdown };
   };
 
-  const calculateWithholding = (amount: number) => {
-    const tax = amount * 0.10; // Simplified 10% rate
-    const breakdown = [`₦${amount.toLocaleString()} × 10% (standard rate) = ₦${Math.round(tax).toLocaleString()}`];
-    return { tax: Math.round(tax), breakdown };
+  const calculateWithholding = (paymentAmount: number) => {
+    // WHT rates vary by payment type - using 5% for contracts/services
+    const whtRate = 0.05; // 5% for contracts, commissions, consultancy, professional services
+    const wht = paymentAmount * whtRate;
+    
+    const breakdown: string[] = [
+      `Payment Amount: ₦${paymentAmount.toLocaleString()}`,
+      `Payment Type: Contracts/Professional Services`,
+      `WHT Rate: 5%`,
+      ``,
+      `WHT to be Deducted: ₦${Math.round(wht).toLocaleString()}`,
+      `Net Payment to Supplier: ₦${Math.round(paymentAmount - wht).toLocaleString()}`,
+      ``,
+      `Note: Other WHT rates apply:`,
+      `  • Dividends, Interest, Rent: 10%`,
+      `  • This WHT is an advance tax payment`
+    ];
+    
+    return { tax: Math.round(wht), breakdown };
   };
 
   const handleCalculate = () => {

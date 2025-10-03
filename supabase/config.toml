@@ -2,3 +2,6 @@ project_id = "txmeolkshhqvwoifmbiw"
 
 [functions.verify-tax-id]
 verify_jwt = false
+
+[functions.process-tax-payment]
+verify_jwt = false

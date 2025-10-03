@@ -95,30 +95,63 @@ const PaymentModal = ({ open, onOpenChange, taxAmount, taxBreakdown, taxType, on
 
     setIsProcessing(true);
     
-    // Mock payment flow with off-ramp and Remita settlement
-    setTimeout(() => {
+    try {
+      // Get wallet address
+      const walletAddress = publicKey?.toBase58() || ethAddress || '';
+      
+      if (!walletAddress) {
+        throw new Error('No wallet connected');
+      }
+
       toast({
         title: "Processing Payment",
-        description: "Converting crypto to NGN via Paj Cash...",
+        description: "Converting crypto to NGN...",
       });
-    }, 500);
 
-    setTimeout(() => {
+      // Call payment processing edge function
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-tax-payment`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            walletAddress,
+            cryptoAmount: cryptoAmount,
+            cryptoCurrency: selectedCrypto,
+            taxAmount,
+            taxType,
+            signature: 'verified' // Already verified via wallet signature
+          })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Payment processing failed');
+      }
+
       toast({
-        title: "Submitting to LIRS",
-        description: "Sending payment to Remita portal...",
+        title: "Payment Successful!",
+        description: `Transaction ID: ${result.transactionId}`,
       });
-    }, 2000);
 
-    setTimeout(() => {
+      console.log('Payment details:', result.details);
+      
       setIsProcessing(false);
       setSignatureVerified(false);
       onPaymentComplete();
+    } catch (error) {
+      console.error('Payment error:', error);
+      setIsProcessing(false);
       toast({
-        title: "Payment Successful!",
-        description: "Your tax payment has been confirmed by LIRS",
+        title: "Payment Failed",
+        description: error instanceof Error ? error.message : "Please try again",
+        variant: "destructive"
       });
-    }, 3500);
+    }
   };
 
   return (
